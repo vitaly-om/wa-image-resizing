@@ -4,22 +4,76 @@ const imageSize = 300;
 
 const DEMO_CONTAINER_ID = 'demo-container';
 class Demo {
-    constructor() {
+    constructor(name) {
         this.container = document.getElementById(DEMO_CONTAINER_ID);
+        this.name = name;
+    }
+
+    _createImageBlock(title) {
+        const imageBlock = document.createElement('div');
+
+        const imageLabel = document.createElement('div');
+        imageLabel.innerText = `${title} image: `;
+        imageBlock.appendChild(imageLabel);
+
+        const image = document.createElement('img');
+        image.src = './img/image-stub.png';
+        imageBlock.appendChild(image);
+
+        return {
+            block: imageBlock,
+            image: image,
+        }
+    }
+
+    createDemoBlock() {
+        const demoBlock = document.createElement('div');
+        demoBlock.className = 'demoBlock';
+
+        const demoHTMLContainer = document.createElement('div');
+        demoHTMLContainer.className = 'htmlContainer';
+        const demoPerformanceHistoryContainer = document.createElement('div');
+        demoPerformanceHistoryContainer.className = 'history';
+        const performanceHeading = document.createElement('h2');
+        performanceHeading.innerText = 'Performance history';
+        demoPerformanceHistoryContainer.appendChild(performanceHeading);
+
+        demoBlock.append(demoHTMLContainer, demoPerformanceHistoryContainer);
+
+        return {
+            block: demoBlock,
+            htmlContainer: demoHTMLContainer,
+            performanceHistoryContainer: demoPerformanceHistoryContainer,
+        }
     }
 
     createHTMLElements() {
-        const demoBlock = document.createElement('div');
+        const demoBlock = this.createDemoBlock();
+        const demoHTMLContainer = demoBlock.htmlContainer;
+
+        const heading = document.createElement('h1');
+        heading.innerText = `Demo "${this.name}"`;
+        demoHTMLContainer.appendChild(heading);
+
         const input = document.createElement('input');
         input.setAttribute('type', 'file');
-        demoBlock.appendChild(input);
+        demoHTMLContainer.appendChild(input);
 
-        this.container.appendChild(demoBlock);
+        const originalImageBlock = this._createImageBlock('Original');
+        demoHTMLContainer.appendChild(originalImageBlock.block);
+
+        const resultImageBlock = this._createImageBlock('Result');
+        demoHTMLContainer.appendChild(resultImageBlock.block);
+
+        this.container.appendChild(demoBlock.block);
     }
 }
 
-const demo = new Demo();
-demo.createHTMLElements();
+const demoWASM = new Demo("Rust WASM");
+demoWASM.createHTMLElements();
+
+const demoJS = new Demo("Native JS");
+demoJS.createHTMLElements();
 
 
 const imageUploader = document.getElementById('image-uploader');

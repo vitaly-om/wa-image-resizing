@@ -1,0 +1,11 @@
+.demoBlock {
+    display: flex;
+}
+
+.htmlContainer {
+    flex: 3;
+}
+
+.history {
+    flex: 1;
+}
