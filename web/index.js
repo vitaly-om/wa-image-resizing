@@ -3,10 +3,14 @@ import * as wasm from "wa-image-resizing";
 const imageSize = 300;
 
 const DEMO_CONTAINER_ID = 'demo-container';
+
 class Demo {
     constructor(name) {
         this.container = document.getElementById(DEMO_CONTAINER_ID);
         this.name = name;
+        this.historyElement = null;
+        this.originalImageElement = null;
+        this.resultImageElement = null;
     }
 
     _createImageBlock(title) {
@@ -24,6 +28,33 @@ class Demo {
             block: imageBlock,
             image: image,
         }
+    }
+
+    createHTMLElements() {
+        const demoBlock = this.createDemoBlock();
+        const demoHTMLContainer = demoBlock.htmlContainer;
+
+        const heading = document.createElement('h1');
+        heading.innerText = `Demo "${this.name}"`;
+        demoHTMLContainer.appendChild(heading);
+
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        demoHTMLContainer.appendChild(input);
+
+        const originalImageBlock = this._createImageBlock('Original');
+        demoHTMLContainer.appendChild(originalImageBlock.block);
+
+        const resultImageBlock = this._createImageBlock('Result');
+        demoHTMLContainer.appendChild(resultImageBlock.block);
+
+        this.container.appendChild(demoBlock.block);
+
+        this.historyElement = demoBlock.performanceHistoryContainer;
+        this.originalImageElement = originalImageBlock.image;
+        this.resultImageElement = resultImageBlock.image;
+
+        this.addInputCallback(input);
     }
 
     createDemoBlock() {
@@ -47,76 +78,98 @@ class Demo {
         }
     }
 
-    createHTMLElements() {
-        const demoBlock = this.createDemoBlock();
-        const demoHTMLContainer = demoBlock.htmlContainer;
+    inputCallBack(file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const dataUrl = event.target.result;
+            this.setOriginalImage(dataUrl);
+            this.processImage(dataUrl);
+        };
 
-        const heading = document.createElement('h1');
-        heading.innerText = `Demo "${this.name}"`;
-        demoHTMLContainer.appendChild(heading);
+        reader.readAsDataURL(file);
+    }
 
-        const input = document.createElement('input');
-        input.setAttribute('type', 'file');
-        demoHTMLContainer.appendChild(input);
+    addInputCallback(inputElement) {
+        inputElement.onchange = (event) => {
+            const file = event.target.files[0];
+            this.inputCallBack(file);
+        }
+    }
 
-        const originalImageBlock = this._createImageBlock('Original');
-        demoHTMLContainer.appendChild(originalImageBlock.block);
+    addPerformanceHistoryRecord(size, timeMS) {
+        if (this.historyElement === null) {
+            return;
+        }
+        const historyRecord = document.createElement('div');
+        historyRecord.innerText = `${new Date().toLocaleString()} | Size: ${size}; Time: ${timeMS}ms`;
+        this.historyElement.appendChild(historyRecord);
+    }
 
-        const resultImageBlock = this._createImageBlock('Result');
-        demoHTMLContainer.appendChild(resultImageBlock.block);
+    setOriginalImage(dataUrl) {
+        this.originalImageElement.src = dataUrl;
+    }
 
-        this.container.appendChild(demoBlock.block);
+    setResultImageDataURL(dataUrl) {
+        this.resultImageElement.src = dataUrl;
+    }
+
+    processImage(dataUrl) {
+        // OVERRIDE IT
+        this.setResultImageDataURL(dataUrl);
     }
 }
 
-const demoWASM = new Demo("Rust WASM");
+
+class DemoNativeJS extends Demo {
+    processImage(dataUrl) {
+        const startTime = Date.now();
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = imageSize;
+        canvas.height = imageSize;
+
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, imageSize, imageSize);
+            this.setResultImageDataURL(canvas.toDataURL());
+            this.addPerformanceHistoryRecord(dataUrl.length, Date.now() - startTime);
+        };
+
+        img.src = dataUrl;
+    }
+}
+
+
+class DemoRustWASM extends Demo {
+    inputCallBack(file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const bytes = event.target.result;
+            this.setOriginalImage(bytesToDataURL(bytes));
+            this.processImage(bytes);
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+
+    processImage(array) {
+        const startTime = Date.now();
+        const binaryData = new Uint8Array(array);
+        const img = wasm.resizeImage(imageSize, binaryData);
+        this.addPerformanceHistoryRecord(binaryData.length, Date.now() - startTime);
+        this.setResultImageDataURL(bytesToDataURL(img));
+    }
+}
+
+
+const demoWASM = new DemoRustWASM("Rust WASM");
 demoWASM.createHTMLElements();
 
-const demoJS = new Demo("Native JS");
+const demoJS = new DemoNativeJS("Native JS");
 demoJS.createHTMLElements();
 
-
-const imageUploader = document.getElementById('image-uploader');
-const imageDemo = document.getElementById('image-demo');
-const timeSpentBlock = document.getElementById('time-spent');
-
-function setDemoImage(bytes) {
-    const blob = new Blob([bytes], {type: 'image/png'});
-    imageDemo.src = URL.createObjectURL(blob);
-}
-
-function setTimeSpent(millis) {
-    timeSpentBlock.innerText = millis;
-}
-
-imageUploader.onchange = (event) => {
-    const file = event.target.files[0];
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const timeStart = Date.now();
-        const resizedImage = resizeImageJS(event.target.result);
-        // setDemoImage(resizedImage);
-        setTimeSpent(Date.now() - timeStart)
-    };
-    reader.readAsDataURL(file);
-};
-
-function resizeImageWa(image) {
-    const binaryData = new Int8Array(image);
-    return wasm.resizeImage(imageSize, binaryData);
-}
-
-function resizeImageJS(image) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = imageSize;
-    canvas.height = imageSize;
-
-    const img = new Image();
-    img.onload = () => {
-        ctx.drawImage(img, 0, 0, imageSize, imageSize);
-        imageDemo.src = canvas.toDataURL();
-    };
-
-    img.src = image;
+function bytesToDataURL(bytes) {
+    const blob = new Blob([bytes], {type: 'image/*'});
+    return URL.createObjectURL(blob);
 }

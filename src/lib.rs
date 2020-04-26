@@ -20,7 +20,10 @@ pub fn resizeImage(size: u32, binary_data: &[u8]) -> Vec<u8> {
     let image_result = load_from_memory(binary_data);
     return match image_result {
         Ok(img) => {
-            img.resize(size, size, imageops::Nearest).to_bytes()
+            let resized_img = img.thumbnail(size, size);
+            let mut bytes = vec!();
+            resized_img.write_to(&mut bytes, ImageOutputFormat::Jpeg(100)).unwrap();
+            return bytes;
         },
         Err(_error) => vec!()
     }
