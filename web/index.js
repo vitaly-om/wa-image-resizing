@@ -2,6 +2,26 @@ import * as wasm from "wa-image-resizing";
 
 const imageSize = 300;
 
+const DEMO_CONTAINER_ID = 'demo-container';
+class Demo {
+    constructor() {
+        this.container = document.getElementById(DEMO_CONTAINER_ID);
+    }
+
+    createHTMLElements() {
+        const demoBlock = document.createElement('div');
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        demoBlock.appendChild(input);
+
+        this.container.appendChild(demoBlock);
+    }
+}
+
+const demo = new Demo();
+demo.createHTMLElements();
+
+
 const imageUploader = document.getElementById('image-uploader');
 const imageDemo = document.getElementById('image-demo');
 const timeSpentBlock = document.getElementById('time-spent');
