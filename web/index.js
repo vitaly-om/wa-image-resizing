@@ -1,5 +1,8 @@
 import * as wasm from "wa-image-resizing";
 
+import Jimp from "jimp";
+
+
 const imageSize = 300;
 
 const DEMO_CONTAINER_ID = 'demo-container';
@@ -141,6 +144,35 @@ class DemoNativeJS extends Demo {
 }
 
 
+
+class DemoJimpJS extends Demo {
+    inputCallBack(file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const bytes = event.target.result;
+            this.setOriginalImage(bytesToDataURL(bytes));
+            this.processImage(bytes);
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+
+    processImage(array) {
+        const startTime = Date.now();
+        Jimp.read(array).then(image => {
+            const resizedImage = image.resize(imageSize, imageSize);
+            resizedImage.getBufferAsync(Jimp.MIME_JPEG)
+                .then(buffer => {
+                    this.setResultImageDataURL(bytesToDataURL(buffer));
+                    this.addPerformanceHistoryRecord(array.length, Date.now() - startTime);
+
+                });
+        })
+    }
+}
+
+
+
 class DemoRustWASM extends Demo {
     inputCallBack(file) {
         const reader = new FileReader();
@@ -168,6 +200,10 @@ demoWASM.createHTMLElements();
 
 const demoJS = new DemoNativeJS("Native JS");
 demoJS.createHTMLElements();
+
+const jimpJS = new DemoJimpJS("Jimp JS");
+jimpJS.createHTMLElements();
+
 
 function bytesToDataURL(bytes) {
     const blob = new Blob([bytes], {type: 'image/*'});

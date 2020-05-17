@@ -8,6 +8,7 @@
     "start": "webpack-dev-server"
   },
   "dependencies": {
+    "jimp": "^0.12.0",
     "wa-image-resizing": "file:../pkg"
   },
   "devDependencies": {
